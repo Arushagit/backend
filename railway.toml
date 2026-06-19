@@ -1,0 +1,16 @@
+# Railway deployment configuration
+# Deploy the Django backend to Railway
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "gunicorn crm_backend.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120"
+healthcheckPath = "/api/health/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "crm-backend"
