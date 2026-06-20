@@ -14,9 +14,10 @@ Endpoints:
 import logging
 from django.conf import settings
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -26,6 +27,18 @@ from .models import Enquiry
 from .serializers import EnquiryUpdateSerializer, AdminLoginSerializer, enquiry_to_dict
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Throttling ──────────────────────────────────────────────────────────────────
+
+class AdminLoginThrottle(AnonRateThrottle):
+    """
+    Tighter throttle specifically for the admin login endpoint.
+    Limits brute-force password guessing to 5 attempts/minute per IP,
+    independent of the global 'anon' throttle rate used elsewhere.
+    """
+    scope = 'admin_login'
+    rate = '5/minute'
 
 
 # ─── Custom JWT Admin Permission ────────────────────────────────────────────────
@@ -44,6 +57,7 @@ class IsAdminJWT(BasePermission):
 # ─── Authentication ─────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
+@throttle_classes([AdminLoginThrottle])
 def admin_login(request):
     """
     Authenticate admin user and return JWT tokens.
