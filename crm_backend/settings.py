@@ -164,6 +164,10 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', EMAIL_HOST_USER)
+# Without this, a hung/slow SMTP connection blocks the worker indefinitely
+# until gunicorn's worker timeout kills the whole request (manifests as a
+# 500 error with no useful traceback, or a SIGKILL in the logs).
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', 10))
 
 # ─── Admin Credentials (stored in env, not DB) ────────────────────────────────
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
