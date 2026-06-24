@@ -1,47 +1,14 @@
-# ─── Python Build Stage ────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --user -r requirements.txt
-
-
-# ─── Production Stage ──────────────────────────────────────────────────────────
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Copy application code
-COPY . .
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Expose port
-EXPOSE 8000
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"
+  CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\", 8000)}/api/health/')"
 
 # Run with Gunicorn
-CMD ["gunicorn", "crm_backend.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+# Shell form (not exec form) is required so $PORT is expanded at runtime.
+# Render's Dockerfile builder runs CMD without a shell otherwise, so an exec-form
+# array would pass the literal string "$PORT" to gunicorn instead of the real port,
+# causing an immediate crash and failed healthchecks.
+CMD gunicorn crm_backend.wsgi:application \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers 4 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile -
